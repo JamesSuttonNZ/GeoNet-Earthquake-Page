@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+
+<div style="width: 100%;">
+	
+	<h2 style="margin-top: 10px;">Recent Quakes</h2>
+	
+	<label for="Earthquakes">Intensity:</label>
+
+	<select id="Earthquakes" onchange="setMMI(this)"> 
+		<option value="all">All (includes deleted)</option>
+		<option value="weak" selected="">Weak+</option>
+		<option value="light">Light+</option>
+		<option value="moderate">Moderate+</option>
+		<option value="strong">Strong+</option>
+		<option value="severe">Severve+</option>
+	</select>
+	
+	<label for="dateStart">Start Date:</label>
+	<input type="date" id="dateStart" name="dateStart" onchange="test()" onkeydown="return false">
+
+	<label for="dateEnd">End Date:</label>
+	<input type="date" id="dateEnd" name="dateEnd" onchange="test()" onkeydown="return false">
+	
+	<p id="desc"></p>
+	
+	</div>
+	
+	<div class="geonetrow" style="display: flex; flex-wrap: nowrap; padding-top: 10px;">
+		<div id="quake data" style="flex: 40%;"></div>
+		
+        <div style="flex: 55%; padding-bottom: 25px;">
+		<div id="map" style="width: 100%px; padding-top: 100%;"></div>
+	</div>
+    </div>
+	
+	<script>
+	
+	//max quake entries shown
+	var max = 100;
+	
+	test = function(){
+		console.log("test");
+	}
+	
+	//converts date to ISO format
+	convertDate = function(date){
+		var dd = date.getDate();
+		var mm = date.getMonth()+1;
+		var yyyy = date.getFullYear();
+		if(dd<10){
+			dd='0'+dd
+		} 
+		if(mm<10){
+			mm='0'+mm
+		}
+		return yyyy+'-'+mm+'-'+dd;
+	}
+	
+	var today = new Date();
+	
+	var convertedToday = convertDate(today);
+	
+	document.getElementById("dateStart").setAttribute("max", convertedToday);
+	document.getElementById("dateEnd").setAttribute("max", convertedToday);
+	document.getElementById("dateEnd").setAttribute("value", convertedToday);
+	
+	var startDate = new Date();
+	startDate.setDate(startDate.getDate() - 365);
+	
+	var startDateConverted = convertDate(startDate);
+	
+	document.getElementById("dateStart").setAttribute("min", startDateConverted);
+	document.getElementById("dateStart").setAttribute("value", startDateConverted);
+	document.getElementById("dateEnd").setAttribute("min", startDateConverted);
+	
+	lb = function(){ return document.createElement( 'br' ); }
+	
+	//return earthquake type string based on MMI
+	getType = function(mmi){
+		if(mmi < 3){
+			return "Unnoticeable";
+		}
+		else if(mmi == 3){
+			return "Weak";
+		}
+		else if(mmi == 4){
+			return "Light";
+		}
+		else if(mmi == 5){
+			return "Moderate";
+		}
+		else if(mmi == 6 || mmi == 7){
+			return "Strong";
+		}
+		else{
+			return "Severve";
+		}
+	}
+	
+	//set MMI based on dropdown and rerun method to calculate quakes
+	setMMI = function(select){
+		var mmi = -1;
+		if(select.value == "all"){
+			mmi = -1;
+		}
+		else if(select.value == "weak"){
+			mmi = 3;
+		}
+		else if(select.value == "light"){
+			mmi = 4;
+		}
+		else if(select.value == "moderate"){
+			mmi = 5;
+		}
+		else if(select.value == "strong"){
+			mmi = 6;
+		}
+		else if(select.value == "severe"){
+			mmi = 8;
+		}
+		getQuakes(mmi);
+	}
+	
+	//Stores map style settings
+	var mapStyle = [{
+        'featureType': 'all',
+        'elementType': 'all',
+        'stylers': [{'visibility': 'off'}]
+	}, {
+        'featureType': 'landscape',
+        'elementType': 'geometry',
+        'stylers': [{'visibility': 'on'}, {'color': '#fcfcfc'}]
+	}, {
+        'featureType': 'water',
+        'elementType': 'labels',
+        'stylers': [{'visibility': 'off'}]
+	}, {
+        'featureType': 'water',
+        'elementType': 'geometry',
+        'stylers': [{'visibility': 'on'}, {'hue': '#5f94ff'}, {'lightness': 60}]
+	}];
+	
+	//main map
+	var map;
+	//array of markers on map
+	var markers = [];
+
+	function initMap() {
+		map = new google.maps.Map(document.getElementById('map'), {
+			center: { lat: -40.9006, lng: 174.8860 },
+			zoom: 5,
+			styles: mapStyle
+		});
+		
+		getQuakes(3);
+
+        /*map.data.setStyle(styleFeature);
+
+        var script = document.createElement('script');
+        script.setAttribute(
+            'src',
+            'https://api.geonet.org.nz/quake?MMI=6');
+        document.getElementsByTagName('head')[0].appendChild(script);*/
+	}
+	
+	//converts date/time to readable text
+	function formatAMPM(date) {
+		var hours = date.getHours();
+		var minutes = date.getMinutes();
+		var ampm = hours >= 12 ? 'PM' : 'AM';
+		hours = hours % 12;
+		hours = hours ? hours : 12; // the hour '0' should be '12'
+		minutes = minutes < 10 ? '0'+minutes : minutes;
+		var strTime = hours + ':' + minutes + ' ' + ampm;
+		return strTime;
+	}
+
+	//calls geonet api and gets/sets all relevant quake data
+	async function getQuakes(mmi){
+		//get data
+		const api_url = 'https://api.geonet.org.nz/quake?MMI='+mmi;
+		const response = await fetch(api_url);
+		//store data
+		const data = await response.json();
+		var quakes = data.features;
+		
+		//set description
+		var desc = "Earthquakes from the last 365 days that may have caused shaking <i>"+getType(mmi)+"</i> or greater in New Zealand. A maximum of 100 earthquakes are displayed.";
+		document.getElementById("desc").innerHTML = desc;
+		
+		//set quake data
+		var div = document.getElementById("quake data");
+		div.innerHTML = "";
+		
+		//reset markers
+		for (var i = 0; i < markers.length; i++) {
+          markers[i].setMap(null);
+        }
+		markers = [];
+		
+		//array to stores weekday strings
+		var weekday = new Array(7);
+		weekday[0] = "Sun";
+		weekday[1] = "Mon";
+		weekday[2] = "Tue";
+		weekday[3] = "Wed";
+		weekday[4] = "Thu";
+		weekday[5] = "Fri";
+		weekday[6] = "Sat";
+		
+		//array to store month strings
+		var month = new Array();
+		month[0] = "Jan";
+		month[1] = "Feb";
+		month[2] = "Mar";
+		month[3] = "Apr";
+		month[4] = "May";
+		month[5] = "Jun";
+		month[6] = "Jul";
+		month[7] = "Aug";
+		month[8] = "Sep";
+		month[9] = "Oct";
+		month[10] = "Nov";
+		month[11] = "Dec";
+		
+		for(var i = 0; i < quakes.length; i++){
+		
+			if(i == max) break;
+			
+			var h = document.createElement("h4");
+			var type = document.createTextNode(getType(quakes[i].properties.mmi)+" Earthquake");
+            if(i == 0){
+            	h.style.cssText = 'margin: 0px;';
+            }
+			h.appendChild(type);
+			div.appendChild(h)
+			
+			var p = document.createElement("p");
+			
+			var t = quakes[i].properties.time;
+			var d = new Date(t);
+			
+			var time = document.createTextNode(weekday[d.getDay()]+" "+month[d.getMonth()]+" "+d.getDate()+" "+d.getFullYear()+" "+formatAMPM(d));
+			var mag = document.createTextNode("Magnitude: "+quakes[i].properties.magnitude.toFixed(1));
+			var depth = document.createTextNode("Depth: "+Math.round(quakes[i].properties.depth)+" km");
+			var loc = document.createTextNode(quakes[i].properties.locality);
+			
+			p.appendChild(time);
+			p.appendChild(lb());
+			p.appendChild(mag);
+			p.appendChild(lb());
+			p.appendChild(depth);
+			p.appendChild(lb());
+			p.appendChild(loc);
+			p.appendChild(lb());
+			
+			div.appendChild(p);
+			
+			/*console.log(quakes[i].geometry.coordinates);*/
+			
+			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.magnitude, quakes[i].geometry.coordinates[1], quakes[i].geometry.coordinates[0]));
+			markers.push(marker);
+		}
+	}
+
+	//calculate marker style
+	function styleFeature(mag, lat, lng) {
+        var low = [151, 83, 34];   // color of mag 1.0
+        var high = [5, 69, 54];  // color of mag 6.0 and above
+        var minMag = 1.0;
+        var maxMag = 6.0;
+
+        // fraction represents where the value sits between the min and max
+        var fraction = (Math.min(mag, maxMag) - minMag) /
+            (maxMag - minMag);
+
+        var color = interpolateHsl(low, high, fraction);
+
+        return {
+		icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            strokeWeight: 0.5,
+            strokeColor: '#fff',
+            fillColor: color,
+            fillOpacity: 2 / mag,
+            // while an exponent would technically be correct, quadratic looks nicer
+            scale: Math.pow(mag, 2)/2
+		},
+		zIndex: Math.floor(mag),
+		map: map,
+		position: {lat: lat, lng: lng}
+        };
+	}
+
+	//calculate colour of marker
+	function interpolateHsl(lowHsl, highHsl, fraction) {
+        var color = [];
+        for (var i = 0; i < 3; i++) {
+			// Calculate color based on the fraction.
+			color[i] = (highHsl[i] - lowHsl[i]) * fraction + lowHsl[i];
+        }
+
+        return 'hsl(' + color[0] + ',' + color[1] + '%,' + color[2] + '%)';
+	}
+	
+	</script>
+	<script async="" defer="" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBZ59X1xNVsFKPrHJ4-JG2osjcm6pfgpbE&amp;callback=initMap">
+    </script>
+
+</body>
+</html>
