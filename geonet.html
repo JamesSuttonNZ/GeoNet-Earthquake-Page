@@ -2,6 +2,13 @@
 <html>
 <head>
 <title>Page Title</title>
+<style>
+@media screen and (max-width: 992px) {
+	.geonetrow {
+		flex-direction: column-reverse;
+	}
+}
+</style>
 </head>
 <body>
 
@@ -20,11 +27,37 @@
 		<option value="severe">Severve+</option>
 	</select>
 	
+	<br>
+	
+	<label for="Time">Time:</label>
+
+	<select id="Time" onchange="setStartDate(this)"> 
+		<option value="hour">Past Hour</option>
+		<option value="24hour">Past 24 Hours</option>
+		<option value="week">Past Week</option>
+		<option value="month">Past Month</option>
+		<option value="year" selected="">Past Year</option>
+	</select>
+	
+	<br>
+	
+	<label for="Max">Max:</label>
+
+	<select id="Max" onchange="setMax(this)"> 
+		<option value="5">5</option>
+		<option value="10">10</option>
+		<option value="25">25</option>
+		<option value="50">50</option>
+		<option value="100" selected="">100</option>
+	</select>
+	
+	<!--Can't use this is api only returns last 100 quakes not all quakes from last 365 days
 	<label for="dateStart">Start Date:</label>
-	<input type="date" id="dateStart" name="dateStart" onchange="test()" onkeydown="return false">
+	<input type="date" id="dateStart" name="dateStart" onchange="setStartDate(this)" onkeydown="return false">
 
 	<label for="dateEnd">End Date:</label>
-	<input type="date" id="dateEnd" name="dateEnd" onchange="test()" onkeydown="return false">
+	<input type="date" id="dateEnd" name="dateEnd" onchange="setEndDate(this)" onkeydown="return false">*/
+	-->
 	
 	<p id="desc"></p>
 	
@@ -40,15 +73,85 @@
 	
 	<script>
 	
+	//store quake info from api
+	var quakes;
+	
 	//max quake entries shown
 	var max = 100;
 	
-	test = function(){
-		console.log("test");
+	//set start date
+	var startDate = new Date();
+	startDate.setFullYear(startDate.getFullYear() - 1);
+	
+	//initial mmi (weak+)
+	var mmi = 3;
+	
+	/*Can't use this is api only returns last 100 quakes not all quakes from last 365 days
+	//set start date
+	var startDate = new Date();
+	startDate.setDate(startDate.getDate() - 365);
+	
+	//set endDate
+	var endDate = new Date();
+	
+	//set date picker initial values
+	var endDateConverted = convertDate(endDate);
+	document.getElementById("dateStart").setAttribute("max", endDateConverted);
+	document.getElementById("dateEnd").setAttribute("max", endDateConverted);
+	document.getElementById("dateEnd").setAttribute("value", endDateConverted);
+	
+	var startDateConverted = convertDate(startDate);
+	document.getElementById("dateStart").setAttribute("min", startDateConverted);
+	document.getElementById("dateStart").setAttribute("value", startDateConverted);
+	document.getElementById("dateEnd").setAttribute("min", startDateConverted);
+	
+	//start date setter function, called when date picker changed
+	function setStartDate(input){
+		startDate = new Date(input.value);
+		getQuakes();
+	}
+	
+	//end date setter function, called when date picker changed
+	function setEndDate(input){
+		endDate = new Date(input.value);
+		getQuakes();
+	}
+	*/
+	
+	//start date setter function
+	function setStartDate(select){
+		var d = new Date();
+		if(select.value == "hour"){
+			d.setHours(d.getHours() - 1);
+			startDate = d;
+		}
+		else if(select.value == "24hour"){
+			d.setDate(d.getDate() - 1);
+			startDate = d;
+		}
+		else if(select.value == "week"){
+			d.setDate(d.getDate() - 7);
+			startDate = d;
+		}
+		else if(select.value == "month"){
+			d.setMonth(d.getMonth() - 1);
+			startDate = d;
+		}
+		else if(select.value == "year"){
+			d.setFullYear(d.getFullYear() - 365);
+			startDate = d;
+		}
+		displayQuakes();
+	}
+	
+	//max quakes shown setter function
+	function setMax(select){
+		max = select.value;
+		displayQuakes();
 	}
 	
 	//converts date to ISO format
-	convertDate = function(date){
+	function convertDate(date){
 		var dd = date.getDate();
 		var mm = date.getMonth()+1;
 		var yyyy = date.getFullYear();
@@ -61,27 +164,10 @@
 		return yyyy+'-'+mm+'-'+dd;
 	}
 	
-	var today = new Date();
-	
-	var convertedToday = convertDate(today);
-	
-	document.getElementById("dateStart").setAttribute("max", convertedToday);
-	document.getElementById("dateEnd").setAttribute("max", convertedToday);
-	document.getElementById("dateEnd").setAttribute("value", convertedToday);
-	
-	var startDate = new Date();
-	startDate.setDate(startDate.getDate() - 365);
-	
-	var startDateConverted = convertDate(startDate);
-	
-	document.getElementById("dateStart").setAttribute("min", startDateConverted);
-	document.getElementById("dateStart").setAttribute("value", startDateConverted);
-	document.getElementById("dateEnd").setAttribute("min", startDateConverted);
-	
-	lb = function(){ return document.createElement( 'br' ); }
+	function lb(){ return document.createElement( 'br' ); }
 	
 	//return earthquake type string based on MMI
-	getType = function(mmi){
+	function getType(){
 		if(mmi < 3){
 			return "Unnoticeable";
 		}
@@ -103,8 +189,7 @@
 	}
 	
 	//set MMI based on dropdown and rerun method to calculate quakes
-	setMMI = function(select){
-		var mmi = -1;
+	function setMMI(select){
 		if(select.value == "all"){
 			mmi = -1;
 		}
@@ -123,7 +208,7 @@
 		else if(select.value == "severe"){
 			mmi = 8;
 		}
-		getQuakes(mmi);
+		getQuakes();
 	}
 	
 	//Stores map style settings
@@ -157,15 +242,7 @@
 			styles: mapStyle
 		});
 		
-		getQuakes(3);
-
-        /*map.data.setStyle(styleFeature);
-
-        var script = document.createElement('script');
-        script.setAttribute(
-            'src',
-            'https://api.geonet.org.nz/quake?MMI=6');
-        document.getElementsByTagName('head')[0].appendChild(script);*/
+		getQuakes();
 	}
 	
 	//converts date/time to readable text
@@ -181,14 +258,19 @@
 	}
 
 	//calls geonet api and gets/sets all relevant quake data
-	async function getQuakes(mmi){
+	async function getQuakes(){
 		//get data
 		const api_url = 'https://api.geonet.org.nz/quake?MMI='+mmi;
 		const response = await fetch(api_url);
 		//store data
 		const data = await response.json();
-		var quakes = data.features;
+		quakes = data.features;
 		
+		displayQuakes();
+	}
+	
+	function displayQuakes(){
+	
 		//set description
 		var desc = "Earthquakes from the last 365 days that may have caused shaking <i>"+getType(mmi)+"</i> or greater in New Zealand. A maximum of 100 earthquakes are displayed.";
 		document.getElementById("desc").innerHTML = desc;
@@ -232,6 +314,16 @@
 		
 			if(i == max) break;
 			
+			var t = quakes[i].properties.time;
+			var d = new Date(t);
+			
+			if(d < startDate) break;
+			
+			var time = document.createTextNode(weekday[d.getDay()]+" "+month[d.getMonth()]+" "+d.getDate()+" "+d.getFullYear()+" "+formatAMPM(d));
+			var mag = document.createTextNode("Magnitude: "+quakes[i].properties.magnitude.toFixed(1));
+			var depth = document.createTextNode("Depth: "+Math.round(quakes[i].properties.depth)+" km");
+			var loc = document.createTextNode(quakes[i].properties.locality);
+			
 			var h = document.createElement("h4");
 			var type = document.createTextNode(getType(quakes[i].properties.mmi)+" Earthquake");
             if(i == 0){
@@ -241,14 +333,6 @@
 			div.appendChild(h)
 			
 			var p = document.createElement("p");
-			
-			var t = quakes[i].properties.time;
-			var d = new Date(t);
-			
-			var time = document.createTextNode(weekday[d.getDay()]+" "+month[d.getMonth()]+" "+d.getDate()+" "+d.getFullYear()+" "+formatAMPM(d));
-			var mag = document.createTextNode("Magnitude: "+quakes[i].properties.magnitude.toFixed(1));
-			var depth = document.createTextNode("Depth: "+Math.round(quakes[i].properties.depth)+" km");
-			var loc = document.createTextNode(quakes[i].properties.locality);
 			
 			p.appendChild(time);
 			p.appendChild(lb());
