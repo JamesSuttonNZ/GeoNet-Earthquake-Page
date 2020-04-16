@@ -14,8 +14,6 @@
 
 <div style="width: 100%;">
 	
-	<h2 style="margin-top: 10px;">Recent Quakes</h2>
-	
 	<label for="Earthquakes">Intensity:</label>
 
 	<select id="Earthquakes" onchange="setMMI(this)"> 
@@ -63,10 +61,10 @@
 	
 	</div>
 	
-	<div class="geonetrow" style="display: flex; flex-wrap: nowrap; padding-top: 10px;">
-		<div id="quake data" style="flex: 40%;"></div>
+	<div class="geonetrow" style="display: flex; flex-wrap: nowrap; padding: 10px;">
+		<div id="quake data" style="flex: 40%; padding: 10px;"></div>
 		
-        <div style="flex: 55%; padding-bottom: 25px;">
+        <div style="flex: 55%; padding: 10px;">
 		<div id="map" style="width: 100%px; padding-top: 100%;"></div>
 	</div>
     </div>
@@ -82,6 +80,7 @@
 	//set start date
 	var startDate = new Date();
 	startDate.setFullYear(startDate.getFullYear() - 1);
+	var past = "Year"
 	
 	//initial mmi (weak+)
 	var mmi = 3;
@@ -124,22 +123,27 @@
 		if(select.value == "hour"){
 			d.setHours(d.getHours() - 1);
 			startDate = d;
+			past = "Hour";
 		}
 		else if(select.value == "24hour"){
 			d.setDate(d.getDate() - 1);
 			startDate = d;
+			past = "24 Hours";
 		}
 		else if(select.value == "week"){
 			d.setDate(d.getDate() - 7);
 			startDate = d;
+			past = "Week";
 		}
 		else if(select.value == "month"){
 			d.setMonth(d.getMonth() - 1);
 			startDate = d;
+			past = "Month";
 		}
 		else if(select.value == "year"){
 			d.setFullYear(d.getFullYear() - 365);
 			startDate = d;
+			past = "Year";
 		}
 		displayQuakes();
 	}
@@ -272,7 +276,7 @@
 	function displayQuakes(){
 	
 		//set description
-		var desc = "Earthquakes from the last 365 days that may have caused shaking <i>"+getType(mmi)+"</i> or greater in New Zealand. A maximum of 100 earthquakes are displayed.";
+		var desc = "Earthquakes from the <b>Past "+past+"</b> that may have caused shaking <b>"+getType(mmi)+"</b> or greater in New Zealand. A maximum of <b>"+max+"</b> earthquakes are displayed.";
 		document.getElementById("desc").innerHTML = desc;
 		
 		//set quake data
@@ -312,26 +316,53 @@
 		
 		for(var i = 0; i < quakes.length; i++){
 		
+			//limit entries to max
 			if(i == max) break;
 			
+			//remove entries before startDate
 			var t = quakes[i].properties.time;
 			var d = new Date(t);
 			
 			if(d < startDate) break;
 			
-			var time = document.createTextNode(weekday[d.getDay()]+" "+month[d.getMonth()]+" "+d.getDate()+" "+d.getFullYear()+" "+formatAMPM(d));
+			//get info
+			var time = document.createTextNode(weekday[d.getDay()]+" "+d.getDate()+" "+month[d.getMonth()]+" "+d.getFullYear()+" "+formatAMPM(d));
 			var mag = document.createTextNode("Magnitude: "+quakes[i].properties.magnitude.toFixed(1));
 			var depth = document.createTextNode("Depth: "+Math.round(quakes[i].properties.depth)+" km");
 			var loc = document.createTextNode(quakes[i].properties.locality);
 			
+			
+			/*console.log(quakes[i].geometry.coordinates);*/
+			
+			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.magnitude, quakes[i].geometry.coordinates[1], quakes[i].geometry.coordinates[0]));
+			markers.push(marker);
+			
+			//row div
+			var row = document.createElement("div");
+			row.style = "display: table; width: 100%;";
+			
+			//col 1 div colour bar
+			var colourBar = document.createElement("div");
+			var col = marker.icon.fillColor;
+			colourBar.style = "display: table-cell; width: 15px;";
+			colourBar.style.setProperty('background-color', col);
+			
+			row.appendChild(colourBar);
+			
+			// col 2 div info
+			var infoDiv = document.createElement("div");
+			infoDiv.style = "display: table-cell; padding-left: 10px;";
+			
+			//heading
 			var h = document.createElement("h4");
 			var type = document.createTextNode(getType(quakes[i].properties.mmi)+" Earthquake");
-            if(i == 0){
+            //if(i == 0){
             	h.style.cssText = 'margin: 0px;';
-            }
+            //}
 			h.appendChild(type);
-			div.appendChild(h)
+			infoDiv.appendChild(h)
 			
+			//info
 			var p = document.createElement("p");
 			
 			p.appendChild(time);
@@ -343,13 +374,32 @@
 			p.appendChild(loc);
 			p.appendChild(lb());
 			
-			div.appendChild(p);
+			p.style = "margin-bottom: 0px;";
 			
-			/*console.log(quakes[i].geometry.coordinates);*/
+			infoDiv.appendChild(p);
 			
-			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.magnitude, quakes[i].geometry.coordinates[1], quakes[i].geometry.coordinates[0]));
-			markers.push(marker);
+			row.appendChild(infoDiv);
+			
+			div.appendChild(row);
+			
+			div.appendChild(document.createElement("hr"));
+			
+			var rowCopy = row.cloneNode(true);
+			setMarkerInfo(rowCopy,marker);
 		}
+	}
+	
+	function setMarkerInfo(rowCopy, marker){
+		var infowindow = new google.maps.InfoWindow({
+			content: rowCopy
+		});
+			
+		marker.addListener('mouseover', function() {
+			infowindow.open(map, marker);
+		});
+		marker.addListener('mouseout', function() {
+			infowindow.close();
+		});
 	}
 
 	//calculate marker style
