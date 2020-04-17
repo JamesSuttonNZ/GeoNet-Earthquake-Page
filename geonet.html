@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<div style="width: 100%;">
+	<div style="width: 100%;">
 	
 	<label for="Earthquakes">Intensity:</label>
 
@@ -356,10 +356,17 @@
 			//heading
 			var h = document.createElement("h4");
 			var type = document.createTextNode(getType(quakes[i].properties.mmi)+" Earthquake");
+			
+			var ital = document.createElement("I");
+			var italText = document.createTextNode(" ("+calcTimeDiff(d)+")");
+			ital.appendChild(italText);
+			
             //if(i == 0){
-            	h.style.cssText = 'margin: 0px;';
+            h.style.cssText = 'margin-top: 0px;';
             //}
 			h.appendChild(type);
+			h.appendChild(document.createElement("br"));
+			h.appendChild(ital);
 			infoDiv.appendChild(h)
 			
 			//info
@@ -386,6 +393,65 @@
 			
 			var rowCopy = row.cloneNode(true);
 			setMarkerInfo(rowCopy,marker);
+		}
+	}
+	
+	function calcTimeDiff(d) {
+		var now = new Date();
+		
+		var ms = (now - d); // milliseconds
+		
+		var sec = Math.floor(ms / 1000); //seconds
+		
+		var mins = Math.round(sec / 60); // minutes
+		
+		var hours = Math.floor(mins / 60); // hours
+		
+		var days = Math.floor(hours / 24); // days
+		
+		var weeks = Math.floor(days / 7); // weeks
+		
+		var years = now.getFullYear() - d.getFullYear(); // years
+		
+		var months = (years * 12) + (now.getMonth() - d.getMonth()); // months
+		
+		if(sec < 60){
+			return sec+" seconds ago";
+		}
+		else if(mins < 60){
+			return min+" minutes ago";
+		}
+		else if(hours < 24){
+			if(hours <= 1){
+				return "1 hour ago";
+			}
+			else{
+				return hours+" hours ago";
+			}
+		}
+		else if(days < 7){
+			if(days <= 1){
+				return "1 day ago";
+			}
+			else{
+				return days+" days ago";
+			}
+		}
+		else if(weeks < 5){
+			if(weeks <= 1){
+				return "1 week ago";
+			}
+			else{
+				return weeks+" weeks ago";
+			}
+		}
+		else{
+			if(months == 1){
+				return "Last month";
+			}
+			else{
+				return months+" months ago";
+			}
 		}
 	}
 	
