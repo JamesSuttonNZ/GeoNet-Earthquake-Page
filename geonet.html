@@ -49,6 +49,15 @@
 		<option value="100" selected="">100</option>
 	</select>
 	
+	<br>
+	
+	<label for="Colour By">Colour By:</label>
+
+	<select id="Colour By" onchange="setColourScheme(this)"> 
+		<option value="0" selected="">Magnitude</option>
+		<option value="1">Intensity(MMI)</option>
+	</select>
+	
 	<!--Can't use this is api only returns last 100 quakes not all quakes from last 365 days
 	<label for="dateStart">Start Date:</label>
 	<input type="date" id="dateStart" name="dateStart" onchange="setStartDate(this)" onkeydown="return false">
@@ -62,9 +71,9 @@
 	</div>
 	
 	<div class="geonetrow" style="display: flex; flex-wrap: nowrap; padding: 10px;">
-		<div id="quake data" style="flex: 40%; padding: 10px;"></div>
+		<div id="quake data" style="flex: 45%; padding: 10px;"></div>
 		
-        <div style="flex: 55%; padding: 10px;">
+        <div style="flex: 50%; padding: 10px;">
 		<div id="map" style="width: 100%px; padding-top: 100%;"></div>
 	</div>
     </div>
@@ -85,37 +94,21 @@
 	//initial mmi (weak+)
 	var mmi = 3;
 	
-	/*Can't use this is api only returns last 100 quakes not all quakes from last 365 days
-	//set start date
-	var startDate = new Date();
-	startDate.setDate(startDate.getDate() - 365);
+	var mapImg = new Image();
+	mapImg.src = "nzmap200x200.png";
 	
-	//set endDate
-	var endDate = new Date();
+	//0 for magnitude, 1 for intensity
+	var colourScheme = 0;
 	
-	//set date picker initial values
-	var endDateConverted = convertDate(endDate);
-	document.getElementById("dateStart").setAttribute("max", endDateConverted);
-	document.getElementById("dateEnd").setAttribute("max", endDateConverted);
-	document.getElementById("dateEnd").setAttribute("value", endDateConverted);
-	
-	var startDateConverted = convertDate(startDate);
-	document.getElementById("dateStart").setAttribute("min", startDateConverted);
-	document.getElementById("dateStart").setAttribute("value", startDateConverted);
-	document.getElementById("dateEnd").setAttribute("min", startDateConverted);
-	
-	//start date setter function, called when date picker changed
-	function setStartDate(input){
-		startDate = new Date(input.value);
-		getQuakes();
+	function setColourScheme(select){
+		if(select.value == "0"){
+			colourScheme = 0;
+		}
+		else if(select.value == "1"){
+			colourScheme = 1;
+		}
+		displayQuakes();
 	}
-	
-	//end date setter function, called when date picker changed
-	function setEndDate(input){
-		endDate = new Date(input.value);
-		getQuakes();
-	}
-	*/
 	
 	//start date setter function
 	function setStartDate(select){
@@ -238,14 +231,20 @@
 	var map;
 	//array of markers on map
 	var markers = [];
+	
+	var infoWindow;
 
 	function initMap() {
 		map = new google.maps.Map(document.getElementById('map'), {
 			center: { lat: -40.9006, lng: 174.8860 },
 			zoom: 5,
-			styles: mapStyle
+			styles: mapStyle,
+			mapTypeId: google.maps.MapTypeId.SATELLITE
 		});
-		
+		infoWindow = new google.maps.InfoWindow();
+		map.addListener('click', function() {
+			if (infoWindow) infoWindow.close();
+		});
 		getQuakes();
 	}
 	
@@ -331,31 +330,71 @@
 			var depth = document.createTextNode("Depth: "+Math.round(quakes[i].properties.depth)+" km");
 			var loc = document.createTextNode(quakes[i].properties.locality);
 			
+			var quakeMMI = quakes[i].properties.mmi;
+			
 			
 			/*console.log(quakes[i].geometry.coordinates);*/
 			
-			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.magnitude, quakes[i].geometry.coordinates[1], quakes[i].geometry.coordinates[0]));
+			var lat = quakes[i].geometry.coordinates[1];
+			var lon = quakes[i].geometry.coordinates[0];
+			
+			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.magnitude, lat, lon, quakeMMI));
 			markers.push(marker);
 			
 			//row div
 			var row = document.createElement("div");
-			row.style = "display: table; width: 100%;";
+			row.style = "display: flex; flex-wrap: wrap; flex-direction: row;";
 			
 			//col 1 div colour bar
 			var colourBar = document.createElement("div");
 			var col = marker.icon.fillColor;
-			colourBar.style = "display: table-cell; width: 15px;";
+			colourBar.style = "width: 15px;";
 			colourBar.style.setProperty('background-color', col);
 			
 			row.appendChild(colourBar);
 			
-			// col 2 div info
+			//col 2 map canvas
+			var opac = marker.icon.fillOpacity;
+			var scale = marker.icon.scale;
+			
+			var topLat = -31.4;
+			var botLat = -50.3;
+			var latDiff = Math.abs(botLat)-Math.abs(topLat);
+			
+			var latPer = (Math.abs(lat)-Math.abs(topLat))/latDiff;
+			
+			var leftLong = 159.9;
+			var rightLong = 185.3;
+			var longDiff = rightLong-leftLong;
+			
+			var longPer = (lon-leftLong)/longDiff;
+			
+			var c = document.createElement("canvas");
+			c.width = "200";
+			c.height = "200";
+			
+			var ctx = c.getContext("2d");
+			ctx.drawImage(mapImg,0,0);
+			ctx.globalAlpha = opac;
+			ctx.beginPath();
+			ctx.arc(200*longPer,200*latPer,scale,0,2*Math.PI);
+			ctx.strokeStyle = "#fff";
+			ctx.lineWidth = 0.5;
+			ctx.fillStyle = col;
+			ctx.fill();
+			ctx.globalAlpha = 1;
+			ctx.stroke();
+			
+			//add canvas to div
+			row.appendChild(c);
+			
+			// col 3 div info
 			var infoDiv = document.createElement("div");
-			infoDiv.style = "display: table-cell; padding-left: 10px;";
+			infoDiv.style = "padding-left: 10px;";
 			
 			//heading
 			var h = document.createElement("h4");
-			var type = document.createTextNode(getType(quakes[i].properties.mmi)+" Earthquake");
+			var type = document.createTextNode(getType(quakeMMI)+" Earthquake");
 			
 			var ital = document.createElement("I");
 			var italText = document.createTextNode(" ("+calcTimeDiff(d)+")");
@@ -391,8 +430,12 @@
 			
 			div.appendChild(document.createElement("hr"));
 			
-			var rowCopy = row.cloneNode(true);
-			setMarkerInfo(rowCopy,marker);
+			var row2 = document.createElement("div");
+			row2.style = "display: flex; flex-direction: row;";
+			row2.appendChild(colourBar.cloneNode(true));
+			row2.appendChild(infoDiv.cloneNode(true));
+			
+			setMarkerInfo(row2,marker);
 		}
 	}
 	
@@ -455,21 +498,43 @@
 		}
 	}
 	
-	function setMarkerInfo(rowCopy, marker){
-		var infowindow = new google.maps.InfoWindow({
-			content: rowCopy
-		});
-			
+	function setMarkerInfo(rowCopy, marker){	
 		marker.addListener('mouseover', function() {
-			infowindow.open(map, marker);
+			infoWindow.setContent(rowCopy);
+			infoWindow.open(map, marker);
 		});
 		marker.addListener('mouseout', function() {
-			infowindow.close();
+			infoWindow.close();
 		});
+		marker.addListener('click', function() {
+			infoWindow.setContent(rowCopy);
+			infoWindow.open(map, marker);
+		});
+	}
+	
+	function getColourMMI(mmi){
+		if(mmi < 3){
+			return "#feedde";
+		}
+		else if(mmi == 3){
+			return "#fdd0a2";
+		}
+		else if(mmi == 4){
+			return "#fdae6b";
+		}
+		else if(mmi == 5){
+			return "#fd8d3c";
+		}
+		else if(mmi == 6 || mmi == 7){
+			return "#f16913";
+		}
+		else{
+			return "#d94801";
+		}
 	}
 
 	//calculate marker style
-	function styleFeature(mag, lat, lng) {
+	function styleFeature(mag, lat, lng, quakeMMI) {
         var low = [151, 83, 34];   // color of mag 1.0
         var high = [5, 69, 54];  // color of mag 6.0 and above
         var minMag = 1.0;
@@ -480,6 +545,10 @@
             (maxMag - minMag);
 
         var color = interpolateHsl(low, high, fraction);
+		
+		if(colourScheme == 1){
+			color = getColourMMI(quakeMMI);
+		}
 
         return {
 		icon: {
@@ -487,7 +556,7 @@
             strokeWeight: 0.5,
             strokeColor: '#fff',
             fillColor: color,
-            fillOpacity: 2 / mag,
+            fillOpacity: 3 / mag,
             // while an exponent would technically be correct, quadratic looks nicer
             scale: Math.pow(mag, 2)/2
 		},
