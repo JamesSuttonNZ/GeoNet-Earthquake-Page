@@ -11,13 +11,19 @@
 </style>
 </head>
 <body>
+	<label for="Colour By">Colour By:</label>
+
+	<select id="Colour By" onchange="setColourScheme(this)"> 
+		<option value="0" selected="">Magnitude</option>
+		<option value="1">Intensity(MMI)</option>
+	</select>
 	
 	<p id="desc"></p>
 	
 	<div class="geonetrow" style="display: flex; flex-wrap: nowrap; padding: 10px;">
-		<div id="quake data" style="flex: 45%; padding: 10px;"></div>
+		<div id="quake data" style="flex:40%; padding: 10px;"></div>
 		
-        <div style="flex: 50%; padding: 10px;">
+        <div style="flex: 60%; padding: 10px;">
 		<div id="map" style="width: 100%px; padding-top: 100%;"></div>
 	</div>
     </div>
@@ -29,6 +35,20 @@
 	
 	//initial mmi (weak+)
 	var mmi = 3;
+	
+	
+	//0 for magnitude, 1 for intensity
+	var colourScheme = 0;
+	
+	function setColourScheme(select){
+		if(select.value == "0"){
+			colourScheme = 0;
+		}
+		else if(select.value == "1"){
+			colourScheme = 1;
+		}
+		displayQuakes();
+	}
 	
 	//converts date to ISO format
 	function convertDate(date){
@@ -121,14 +141,19 @@
 	var map;
 	//array of markers on map
 	var markers = [];
+	
+	var infoWindow;
 
 	function initMap() {
 		map = new google.maps.Map(document.getElementById('map'), {
 			styles: mapStyle,
 			mapTypeId: google.maps.MapTypeId.SATELLITE
 		});
-		
-		getQuakes();
+		infoWindow = new google.maps.InfoWindow();
+		map.addListener('click', function() {
+			if (infoWindow) infoWindow.close();
+		});
+		getQuakes()
 	}
 	
 	//converts date/time to readable text
@@ -159,7 +184,6 @@
 		var northEast = new google.maps.LatLng(bbox[4],bbox[3]);
 		var bounds = new google.maps.LatLngBounds(southWest,northEast);
 		map.fitBounds(bounds);
-		map.setZoom(1.75);
 		displayQuakes();
 	}
 	
@@ -216,27 +240,32 @@
 			var depth = document.createTextNode("Depth: "+Math.round(quakes[i].geometry.coordinates[2])+" km");
 			var loc = document.createTextNode(quakes[i].properties.place);
 			
+			var quakeMMI = quakes[i].properties.mmi;
 			
 			/*console.log(quakes[i].geometry.coordinates);*/
 			
-			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.mag, quakes[i].geometry.coordinates[1], quakes[i].geometry.coordinates[0]));
+			var lat = quakes[i].geometry.coordinates[1];
+			var lon = quakes[i].geometry.coordinates[0];
+			
+			var marker = new google.maps.Marker(styleFeature(quakes[i].properties.mag,lat, lon, quakeMMI));
 			markers.push(marker);
 			
 			//row div
 			var row = document.createElement("div");
-			row.style = "display: table; width: 100%;";
+			row.style = "display: flex; flex-wrap: wrap; flex-direction: row;";
 			
 			//col 1 div colour bar
 			var colourBar = document.createElement("div");
 			var col = marker.icon.fillColor;
-			colourBar.style = "display: table-cell; width: 15px;";
+			colourBar.style = "width: 10px;";
 			colourBar.style.setProperty('background-color', col);
 			
 			row.appendChild(colourBar);
 			
+			
 			// col 2 div info
 			var infoDiv = document.createElement("div");
-			infoDiv.style = "display: table-cell; padding-left: 10px;";
+			infoDiv.style = "padding-left: 10px;";
 			
 			//heading
 			var h = document.createElement("h4");
@@ -341,20 +370,42 @@
 	}
 	
 	function setMarkerInfo(rowCopy, marker){
-		var infowindow = new google.maps.InfoWindow({
-			content: rowCopy
-		});
-			
 		marker.addListener('mouseover', function() {
-			infowindow.open(map, marker);
+			infoWindow.setContent(rowCopy);
+			infoWindow.open(map, marker);
 		});
 		marker.addListener('mouseout', function() {
-			infowindow.close();
+			infoWindow.close();
 		});
+		marker.addListener('click', function() {
+			infoWindow.setContent(rowCopy);
+			infoWindow.open(map, marker);
+		});
+	}
+	
+	function getColourMMI(mmi){
+		if(mmi < 3 || mmi == null){
+			return "#feedde";
+		}
+		else if(mmi < 4){
+			return "#fdd0a2";
+		}
+		else if(mmi < 5){
+			return "#fdae6b";
+		}
+		else if(mmi < 6){
+			return "#fd8d3c";
+		}
+		else if(mmi < 8){
+			return "#f16913";
+		}
+		else{
+			return "#d94801";
+		}
 	}
 
 	//calculate marker style
-	function styleFeature(mag, lat, lng) {
+	function styleFeature(mag, lat, lng, quakeMMI) {
         var low = [151, 83, 34];   // color of mag 1.0
         var high = [5, 69, 54];  // color of mag 6.0 and above
         var minMag = 1.0;
@@ -365,6 +416,10 @@
             (maxMag - minMag);
 
         var color = interpolateHsl(low, high, fraction);
+		
+		if(colourScheme == 1){
+			color = getColourMMI(quakeMMI);
+		}
 
         return {
 		icon: {
@@ -372,7 +427,7 @@
             strokeWeight: 0.5,
             strokeColor: '#fff',
             fillColor: color,
-            fillOpacity: 2 / mag,
+            fillOpacity: 3 / mag,
             // while an exponent would technically be correct, quadratic looks nicer
             scale: Math.pow(mag, 2)/2
 		},
