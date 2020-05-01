@@ -15,9 +15,9 @@
 	<p id="desc"></p>
 	
 	<div class="geonetrow" style="display: flex; flex-wrap: nowrap; padding: 10px;">
-		<div id="quake data" style="flex: 40%; padding: 10px;"></div>
+		<div id="quake data" style="flex: 45%; padding: 10px;"></div>
 		
-        <div style="flex: 55%; padding: 10px;">
+        <div style="flex: 50%; padding: 10px;">
 		<div id="map" style="width: 100%px; padding-top: 100%;"></div>
 	</div>
     </div>
@@ -124,7 +124,8 @@
 
 	function initMap() {
 		map = new google.maps.Map(document.getElementById('map'), {
-			styles: mapStyle
+			styles: mapStyle,
+			mapTypeId: google.maps.MapTypeId.SATELLITE
 		});
 		
 		getQuakes();

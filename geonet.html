@@ -95,7 +95,7 @@
 	var mmi = 3;
 	
 	var mapImg = new Image();
-	mapImg.src = "nzmap200x200.png";
+	
 	
 	//0 for magnitude, 1 for intensity
 	var colourScheme = 0;
@@ -235,6 +235,7 @@
 	var infoWindow;
 
 	function initMap() {
+		
 		map = new google.maps.Map(document.getElementById('map'), {
 			center: { lat: -40.9006, lng: 174.8860 },
 			zoom: 5,
@@ -245,7 +246,9 @@
 		map.addListener('click', function() {
 			if (infoWindow) infoWindow.close();
 		});
-		getQuakes();
+		mapImg.onload = function() { getQuakes();}
+		mapImg.src = "nzmap200x200.png";
+		
 	}
 	
 	//converts date/time to readable text
@@ -348,7 +351,7 @@
 			//col 1 div colour bar
 			var colourBar = document.createElement("div");
 			var col = marker.icon.fillColor;
-			colourBar.style = "width: 15px;";
+			colourBar.style = "width: 10px;";
 			colourBar.style.setProperty('background-color', col);
 			
 			row.appendChild(colourBar);
